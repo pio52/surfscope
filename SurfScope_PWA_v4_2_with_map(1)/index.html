@@ -1,0 +1,439 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b1220" />
+  <title>SurfScope</title>
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="icon" href="./icons/icon-192.png" />
+  <link rel="apple-touch-icon" href="./icons/icon-192.png" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-title">SurfScope</div>
+      <div id="brandSub" class="brand-sub">Global surf + marine dashboard</div>
+    </div>
+    <div class="top-actions">
+      <button id="btnInstall" class="btn ghost" hidden>Install</button>
+      <button id="btnShare" class="btn ghost">Share</button>
+    </div>
+  </header>
+
+  <nav class="tabs" role="tablist" aria-label="Navigation">
+    <button id="tabDash" class="tab active" data-view="dash" role="tab" aria-selected="true">Dashboard</button>
+    <button id="tabForecast" class="tab" data-view="forecast" role="tab" aria-selected="false">Forecast</button>
+        <button id="tabMap" class="tab" data-view="map" role="tab" aria-selected="false">Map</button>
+<button id="tabFavorites" class="tab" data-view="favorites" role="tab" aria-selected="false">Favorites</button>
+    <button id="tabAlerts" class="tab" data-view="alerts" role="tab" aria-selected="false">Alerts</button>
+    <button id="tabSettings" class="tab" data-view="settings" role="tab" aria-selected="false">Settings</button>
+  </nav>
+
+  <main class="wrap">
+    <section class="card">
+      <div class="row">
+        <div class="grow">
+          <label id="lblSearch" class="lbl" for="q">Search anywhere</label>
+          <input id="q" class="inp" type="text" placeholder="Puerto Escondido, Zicatela, Bali, etc." autocomplete="off" />
+        </div>
+        <div class="btncol">
+          <button id="btnSearch" class="btn">Search</button>
+          <button id="btnUseGPS" class="btn ghost">GPS</button>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="grow">
+          <select id="results" class="sel" size="4" aria-label="Search results"></select>
+          <div id="searchHint" class="muted small">Tip: pick from results, then tap “Load”.</div>
+        </div>
+        <div class="btncol">
+          <button id="btnLoad" class="btn">Load</button>
+          <button id="btnFav" class="btn ghost">☆ Favorite</button>
+        </div>
+      </div>
+
+      <div class="row">
+        <div id="status" class="pill">Ready</div>
+        <div id="sourceNote" class="muted small">Source: Open‑Meteo Marine + Weather</div>
+      </div>
+      <div id="err" class="err" hidden></div>
+    </section>
+
+    <!-- DASH -->
+    <section id="view-dash" class="view active">
+      <div class="card">
+        <div class="row between">
+          <div>
+            <div id="place" class="h2">—</div>
+            <div id="asof" class="muted small">—</div>
+            <div id="modelLine" class="muted small">—</div>
+          </div>
+        </div>
+
+        <div class="pillrow">
+          <div id="pillSummary" class="pill">Summary</div>
+          <div id="pillChart" class="pill ghost">Chart</div>
+        </div>
+
+        <div class="grid3">
+          <div class="kpi">
+            <div id="kWave" class="k">Significant wave (Hs)</div>
+            <div id="vWave" class="v">—</div>
+            <div id="sWave" class="s">—</div>
+          </div>
+          <div class="kpi">
+            <div id="kSwell" class="k">Primary swell</div>
+            <div id="vSwell" class="v">—</div>
+            <div id="sSwell" class="s">—</div>
+          </div>
+          <div class="kpi">
+            <div id="kWind" class="k">Wind (10m)</div>
+            <div id="vWind" class="v">—</div>
+            <div id="sWind" class="s">—</div>
+            <div id="windRel" class="s">—</div>
+          </div>
+          <div class="kpi">
+            <div id="kTide" class="k">Sea level (tide proxy)</div>
+            <div id="vTide" class="v">—</div>
+            <div id="sTide" class="s">—</div>
+          </div>
+          <div class="kpi">
+            <div id="kNextTides" class="k">Next tides (approx)</div>
+            <div id="tides" class="s">—</div>
+          </div>
+          <div class="kpi">
+            <div id="kSurfIdx" class="k">Surf rating</div>
+            <div class="row">
+              <span id="surfBadge" class="pill">—</span>
+              <span id="surfStars" class="stars dim">☆☆☆☆☆</span>
+            </div>
+            <div id="surfExplain" class="s">—</div>
+          </div>
+        </div>
+
+        <div class="chartwrap">
+          <canvas id="chart" width="980" height="340" aria-label="Chart"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <!-- FORECAST -->
+    <section id="view-forecast" class="view">
+      <div class="card">
+        <div class="row between">
+          <div>
+            <div id="pillTable" class="pill">Hourly table</div>
+            <div id="tblPlace" class="muted small">—</div>
+          </div>
+          <div class="row">
+            <label class="muted small" for="range">Range</label>
+            <select id="range" class="sel inline">
+              <option value="24">24h</option>
+              <option value="48">48h</option>
+              <option value="72" selected>72h</option>
+              <option value="120">120h</option>
+              <option value="168">168h</option>
+            </select>
+            <button id="btnCSV" class="btn ghost">CSV</button>
+          </div>
+        </div>
+
+        <div class="tablewrap">
+          <table id="tbl" class="tbl">
+            <thead>
+              <tr>
+                <th id="thTime">Time</th>
+                <th>Hs</th>
+                <th>Per</th>
+                <th>Dir</th>
+                <th id="thSwell">Swell</th>
+                <th id="thSwell2">2° Swell</th>
+                <th id="thWindSea">Wind-sea</th>
+                <th id="thWind">Wind</th>
+                <th id="thTide">Sea lvl</th>
+                <th id="thCurr">Current</th>
+                <th>SST</th>
+                <th id="thIndex">SurfIdx</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    
+    <!-- MAP -->
+    <section id="view-map" class="view">
+      <div class="card">
+        <div class="card-title">
+          <span class="pill" id="pillMap">Map</span>
+          <span class="muted small" id="mapHint">Tap the map to pin a location. Tap a favorite marker to load.</span>
+          <span class="muted small right" id="mapAttribution">© OpenStreetMap contributors</span>
+        </div>
+
+        <div class="row mt12 gap8">
+          <button class="btn ghost" id="btnMapToLast">Center on current spot</button>
+          <button class="btn ghost" id="btnMapShowFavs">Show favorites</button>
+          <button class="btn" id="btnMapLoad">Load pinned</button>
+        </div>
+
+        <div class="muted small mt8" id="mapPinned">Pinned: —</div>
+      </div>
+
+      <div class="card mt12">
+        <div id="map" class="map" aria-label="Map" role="application"></div>
+        <div class="muted small mt8" id="mapNote">
+          This is a base map for selecting coordinates. “Windy-style” animated overlays require a separate map data provider.
+        </div>
+      </div>
+    </section>
+
+<!-- FAVORITES -->
+    <section id="view-favorites" class="view">
+      <div class="card">
+        <div class="row between">
+          <div>
+            <div id="pillFavs" class="pill">Favorites</div>
+            <div id="favHint" class="muted small">Tap a favorite to load it.</div>
+          </div>
+          <div class="row">
+            <label class="muted small" for="compareRange">Compare</label>
+            <select id="compareRange" class="sel inline">
+              <option value="12">12h</option>
+              <option value="24" selected>24h</option>
+              <option value="48">48h</option>
+            </select>
+            <button id="btnCompare" class="btn ghost">Run</button>
+          </div>
+        </div>
+
+        <div id="compareBox" class="compare"></div>
+        <div id="favList" class="list"></div>
+      </div>
+    </section>
+
+    <!-- ALERTS -->
+    <section id="view-alerts" class="view">
+      <div class="card">
+        <div class="row between">
+          <div>
+            <div id="pillAlerts" class="pill">Alerts</div>
+            <div id="alertHint" class="muted small">Alerts run while the app is open (iOS/desktop browsers limit background checks).</div>
+          </div>
+          <div class="row">
+            <button id="btnEnableNotifs" class="btn ghost">Enable notifications</button>
+            <button id="btnRunChecks" class="btn ghost">Run checks now</button>
+          </div>
+        </div>
+
+        <div class="muted small" id="notifState">—</div>
+
+        <hr class="hr" />
+
+        <div class="row">
+          <div class="grow">
+            <div id="kNewAlert" class="h3">New alert (for one or many spots)</div>
+            <div class="muted small">
+              <span id="newAlertSpot">—</span>
+              <span class="dot">•</span>
+              <span id="alertIdxTip">SurfIdx ≈ Hs² × swellPeriod (simple energy proxy)</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="grow">
+            <label id="kAlertSpots" class="lbl" for="aSpotMulti">Apply to spots</label>
+            <select id="aSpotMulti" class="sel" multiple size="5"></select>
+            <div class="row between">
+              <div id="alertSpotsHint" class="muted small">Choose one or more favorites, or leave empty to use the current spot.</div>
+              <label class="small"><input id="aAllFavs" type="checkbox" /> <span id="lblAllFavs">All favorites</span></label>
+            </div>
+            <div id="alertMultiTip" class="muted small">Tip: on mobile, tap and hold to multi-select.</div>
+          </div>
+        </div>
+
+        <div class="grid2">
+          <div>
+            <label class="lbl" for="aName">Name</label>
+            <input id="aName" class="inp" type="text" placeholder="Zicatela glassy mornings" />
+          </div>
+          <div>
+            <label class="lbl" for="aLook">Lookahead (hours)</label>
+            <input id="aLook" class="inp" type="number" min="1" max="192" value="24" />
+          </div>
+
+          <div>
+            <label class="lbl" id="lblMinHs" for="aMinHs">min Hs</label>
+            <input id="aMinHs" class="inp" type="number" step="0.1" placeholder="e.g. 1.5" />
+          </div>
+          <div>
+            <label class="lbl" id="lblMinSwellH" for="aMinSwellH">min Swell H</label>
+            <input id="aMinSwellH" class="inp" type="number" step="0.1" placeholder="e.g. 1.0" />
+          </div>
+
+          <div>
+            <label class="lbl" for="aMinSwellP">min Swell Period (s)</label>
+            <input id="aMinSwellP" class="inp" type="number" step="0.1" placeholder="e.g. 12" />
+          </div>
+          <div>
+            <label class="lbl" for="aMinIdx">min SurfIdx</label>
+            <input id="aMinIdx" class="inp" type="number" step="0.1" placeholder="e.g. 15" />
+          </div>
+
+          <div>
+            <label class="lbl" id="lblMaxWind" for="aMaxWind">max Wind</label>
+            <input id="aMaxWind" class="inp" type="number" step="0.1" placeholder="e.g. 15" />
+          </div>
+          <div>
+            <label class="lbl" for="aWindDir">Wind dir center (deg)</label>
+            <input id="aWindDir" class="inp" type="number" step="1" min="0" max="359" placeholder="e.g. 0 = N" />
+          </div>
+
+          <div>
+            <label class="lbl" for="aWindTol">Wind dir tolerance (deg)</label>
+            <input id="aWindTol" class="inp" type="number" step="1" min="0" max="180" value="60" />
+          </div>
+          <div>
+            <label class="lbl" for="aDummy"> </label>
+            <div class="muted small" id="windDirTip">Wind direction is where the wind is coming from (meteorological).</div>
+          </div>
+        </div>
+
+        <div class="row">
+          <button id="btnCreateAlert" class="btn">Create alert</button>
+        </div>
+
+        <hr class="hr" />
+
+        <div id="alertList" class="list"></div>
+      </div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section id="view-settings" class="view">
+      <div class="card">
+        <div class="row between">
+          <div>
+            <div id="pillSettings" class="pill">Settings</div>
+            <div id="settingsHint" class="muted small">Stored locally on this device.</div>
+          </div>
+        </div>
+
+        <div class="h3" id="kDisplay">Display</div>
+        <div class="grid2">
+          <div>
+            <label id="lblLanguage" class="lbl" for="sLang">Language</label>
+            <select id="sLang" class="sel">
+              <option value="en">English</option>
+              <option value="es">Español</option>
+            </select>
+          </div>
+
+          <div>
+            <label id="lblWaveUnit" class="lbl" for="sWaveUnit">Wave unit</label>
+            <select id="sWaveUnit" class="sel">
+              <option value="m">m</option>
+              <option value="ft">ft</option>
+            </select>
+          </div>
+
+          <div>
+            <label id="lblWindUnit" class="lbl" for="sWindUnit">Wind speed unit</label>
+            <select id="sWindUnit" class="sel">
+              <option value="kmh">km/h</option>
+              <option value="mph">mph</option>
+              <option value="kts">kts</option>
+            </select>
+          </div>
+
+          <div>
+            <label id="lblTempUnit" class="lbl" for="sTempUnit">Temperature unit</label>
+            <select id="sTempUnit" class="sel">
+              <option value="c">°C</option>
+              <option value="f">°F</option>
+            </select>
+          </div>
+
+          <div>
+            <label id="lblRatingMode" class="lbl" for="sRating">Surf rating display</label>
+            <select id="sRating" class="sel">
+              <option value="both">Badge + Stars</option>
+              <option value="badge">Good/Okay/Small</option>
+              <option value="stars">1–5 Stars</option>
+            </select>
+          </div>
+
+          <div>
+            <label id="lblTZ" class="lbl" for="sTZ">Timezone</label>
+            <select id="sTZ" class="sel">
+              <option value="auto">Auto</option>
+              <option value="UTC">UTC</option>
+              <option value="America/Mexico_City">America/Mexico_City</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="h3">Models</div>
+        <div class="grid2">
+          <div>
+            <label class="lbl" for="sWaveModel">Wave model (override)</label>
+            <select id="sWaveModel" class="sel">
+              <option value="auto">Auto (best match)</option>
+              <option value="ncep_gfswave025">NOAA/NCEP GFSWave 0.25°</option>
+              <option value="ecmwf_wam025">ECMWF WAM 0.25°</option>
+              <option value="meteofrance_wave">Météo‑France Wave</option>
+              <option value="dwd_gwam">DWD GWAM (global)</option>
+              <option value="dwd_ewam">DWD EWAM (Europe)</option>
+            </select>
+            <div class="muted small">If override has missing values, SurfScope will fall back to Auto.</div>
+          </div>
+          <div>
+            <label class="lbl" for="sMergeExtras">Fill missing SST / currents</label>
+            <select id="sMergeExtras" class="sel">
+              <option value="on">On (recommended)</option>
+              <option value="off">Off</option>
+            </select>
+            <div class="muted small">Uses additional Open‑Meteo marine datasets when the base model returns nulls.</div>
+          </div>
+        </div>
+
+        <div class="h3" id="kAlertsSettings">Alerts</div>
+        <div class="grid2">
+          <div>
+            <label id="lblCheckEvery" class="lbl" for="sCheckEvery">Auto-check every (minutes)</label>
+            <input id="sCheckEvery" class="inp" type="number" min="5" max="180" step="5" />
+          </div>
+          <div>
+            <label id="lblCooldown" class="lbl" for="sCooldown">Cooldown per alert (minutes)</label>
+            <input id="sCooldown" class="inp" type="number" min="30" max="1440" step="30" />
+          </div>
+        </div>
+
+        <div id="pushNote" class="muted small">Background push notifications require a server + Web Push setup. This app does in‑app checks.</div>
+
+        <div class="h3" id="kBackup">Backup</div>
+        <div class="row">
+          <button id="btnExport" class="btn ghost">Export JSON</button>
+          <button id="btnImport" class="btn ghost">Import JSON</button>
+          <button id="btnReset" class="btn danger">Reset</button>
+        </div>
+
+        <div class="muted small" id="footerNote">Made for quick global checks. Not for navigation.</div>
+      </div>
+    </section>
+
+    <footer class="footer muted small">
+      <span>© SurfScope</span>
+    </footer>
+  </main>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script src="./app.js"></script>
+</body>
+</html>
